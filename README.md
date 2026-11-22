@@ -129,5 +129,4 @@ and one of the app it serves.
 
 ## License
 
-No license file yet — one will be added before the first public release. Until then the code is
-“all rights reserved” by default.
+MIT - see [LICENSE](LICENSE).
