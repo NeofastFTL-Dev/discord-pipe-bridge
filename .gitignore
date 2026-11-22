@@ -1,0 +1,15 @@
+# ---- winegcc output ----
+dist/
+*.o
+*.exe
+*.exe.so
+*.so
+
+# ---- Local logs ----
+*.log
+
+# ---- Editor / OS junk ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
