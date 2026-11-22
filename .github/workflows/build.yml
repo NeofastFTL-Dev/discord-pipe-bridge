@@ -1,0 +1,49 @@
+name: build
+
+# The bridge itself is a Linux program (a Wine loader plus an ELF unix side), so it
+# needs no cross toolchain: build.sh just wants winegcc and gcc. The published
+# libopenmpt-style "it compiles here" assumption is checked by inspecting both
+# outputs.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build with winegcc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install winegcc and gcc
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends wine64-tools gcc libc6-dev
+          command -v winegcc || { echo "winegcc is still missing after install"; exit 1; }
+
+      - name: ./build.sh
+        run: ./build.sh
+
+      - name: Check both outputs
+        run: |
+          set -euo pipefail
+          for f in dist/discord-pipe-bridge.exe dist/discord-pipe-bridge.exe.so; do
+            test -f "$f" || { echo "missing $f"; ls -l dist; exit 1; }
+            ls -l "$f"
+          done
+          # the PE side is the loader wine runs; the unix side does the AF_UNIX work
+          ftype=$(file -b dist/discord-pipe-bridge.exe.so)
+          echo "unix side: $ftype"
+          case "$ftype" in
+            ELF*shared*) ;;
+            *) echo "the unix side is not an ELF shared object"; exit 1 ;;
+          esac
+          size=$(stat -c %s dist/discord-pipe-bridge.exe.so)
+          test "$size" -gt 10000 \
+            || { echo "the unix side is only $size bytes"; exit 1; }
