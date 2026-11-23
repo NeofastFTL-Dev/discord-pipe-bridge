@@ -7,6 +7,7 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -47,3 +48,45 @@ jobs:
           size=$(stat -c %s dist/discord-pipe-bridge.exe.so)
           test "$size" -gt 10000 \
             || { echo "the unix side is only $size bytes"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discord-pipe-bridge
+          path: dist/discord-pipe-bridge.exe*
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: discord-pipe-bridge
+          path: dist
+
+      - name: Package the two files together
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          test -s dist/discord-pipe-bridge.exe
+          test -s dist/discord-pipe-bridge.exe.so
+          mkdir -p out
+          cp dist/discord-pipe-bridge.exe dist/discord-pipe-bridge.exe.so out/
+          (cd out && zip -9 "../discord-pipe-bridge-${version}.zip" \
+            discord-pipe-bridge.exe discord-pipe-bridge.exe.so)
+          ls -l "discord-pipe-bridge-${version}.zip"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: discord-pipe-bridge-*.zip
+          name: discord-pipe-bridge ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            The Wine to native Linux Discord IPC bridge.
+
+            The zip holds both halves of the program; they must stay together. Install both into
+            `drive_c/windows/` inside the prefix, as described in the README.
